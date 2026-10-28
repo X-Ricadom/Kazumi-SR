@@ -1,0 +1,30 @@
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -14,9 +14,15 @@
+   message(FATAL_ERROR "Use the Dart build hook to supply EH_DART_INCLUDE from the active Dart SDK")
+ endif()
+ 
+-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/cacert.pem" EH_CA_PEM)
++# Byte initializer avoids MSVC's single string literal size limit and preserves
++# the bundled certificate store byte-for-byte.
++file(READ "${CMAKE_CURRENT_SOURCE_DIR}/cacert.pem" EH_CA_PEM HEX)
++string(REGEX REPLACE "(..)" "0x\\1," EH_CA_BYTES "${EH_CA_PEM}")
+ configure_file(ca_bundle.h.in "${CMAKE_CURRENT_BINARY_DIR}/ca_bundle.h" @ONLY)
+ add_library(ech_http SHARED ech_http.cpp)
++if(MSVC)
++  target_compile_options(ech_http PRIVATE /utf-8)
++endif()
+ # Imported includes default to -isystem, which can lose to a host OpenSSL
+ # installation in /usr/local/include. Always prefer this SDK's pinned headers.
+ set_target_properties(ech_http PROPERTIES NO_SYSTEM_FROM_IMPORTED ON)
+--- a/src/ca_bundle.h.in
++++ b/src/ca_bundle.h.in
+@@ -1,6 +1,7 @@
+ #pragma once
+ #include <string>
+ inline const std::string &eh_ca_bundle() {
+-  static const std::string roots = R"ECH_CA_BUNDLE(@EH_CA_PEM@)ECH_CA_BUNDLE";
++  static const unsigned char bytes[] = { @EH_CA_BYTES@ };
++  static const std::string roots(reinterpret_cast<const char *>(bytes), sizeof(bytes));
+   return roots;
+ }

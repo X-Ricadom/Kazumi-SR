@@ -1,0 +1,19 @@
+name: Publication privacy
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Audit published content and fork commit identities
+        run: python3 tools/check_publication_privacy.py
+      - name: Verify privacy guard regression tests
+        run: python3 tools/test_publication_privacy.py
